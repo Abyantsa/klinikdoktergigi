@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: docreserve-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install && npx prisma migrate deploy && npm run seed
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: PORT
+        value: "4000"
+      - key: DATABASE_URL
+        value: "file:./dev.db"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
