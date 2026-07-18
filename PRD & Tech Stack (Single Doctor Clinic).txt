@@ -1,0 +1,109 @@
+﻿Product Requirement Document (PRD) & Analisis Tech Stack (Edisi Klinik 1 Dokter)
+Proyek: Sistem Reservasi Periksa Dokter Tunggal (DocReserve - Single Doctor)
+Dokumen ini berfungsi sebagai panduan produk, aturan logika bisnis, dan acuan teknis arsitektur untuk pengembangan aplikasi web reservasi klinik mandiri/tunggal (hanya ada 1 dokter aktif). Dokumen ini disesuaikan dengan struktur direktori frontend dan backend yang Anda rancang.
+I. Product Requirement Document (PRD)
+1. Deskripsi Produk & Tujuan
+DocReserve adalah platform reservasi online berbasis web yang dirancang khusus untuk klinik mandiri atau praktik dokter tunggal. Aplikasi ini bertujuan untuk menggantikan sistem antrean fisik konvensional, mencegah penumpukan pasien di ruang tunggu, serta memudahkan asisten/dokter dalam mengelola alur kunjungan secara real-time.
+2. Pengguna Sistem (User Personas)
+* Pasien (Patient): Membuat janji temu langsung dengan memilih tanggal/jam operasional klinik yang tersedia, mengisi keluhan, dan melihat status antrean mereka.
+* Admin/Dokter (Admin/Doctor): Dalam konteks klinik tunggal, admin (bisa asisten atau dokter sendiri) mengelola slot libur/aktif klinik, memanggil pasien sesuai antrean, melewati pasien yang terlambat, dan memanggil kembali pasien yang sempat terlewat jika mereka telah datang.
+3. Ruang Lingkup Fitur (Feature Scope)
+A. Fitur Pasien (Frontend)
+1. Landing Page & Info Klinik: Menampilkan profil singkat dokter tunggal, alamat, jam operasional reguler, serta nomor antrean yang sedang diperiksa saat ini.
+2. Sistem Booking Instan (Tanpa Pilih Dokter):
+   * Pasien memilih tanggal periksa pada kalender interaktif.
+   * Sistem menampilkan sisa kuota untuk setiap slot waktu (misal: Sesi Pagi, Sesi Sore).
+   * Pasien memasukkan nama, nomor HP, dan keluhan singkat.
+3. Halaman Tiket Antrean (Queue Ticket): Setelah berhasil mendaftar, pasien mendapatkan kode reservasi dan nomor urut antrean secara otomatis (dimulai dari angka 1 setiap harinya).
+4. Cek Status Antrean Real-time: Pasien dapat melihat nomor antrean aktif dari ponsel mereka agar tidak perlu menunggu lama secara fisik di klinik.
+B. Fitur Admin / Dokter (Dashboard)
+1. Manajemen Antrean Dinamis:
+   * Tombol "Panggil Berikutnya" untuk memanggil pasien berstatus menunggu (Waiting) berikutnya.
+   * Tombol "Lewati" (Skip) jika pasien yang dipanggil tidak kunjung datang.
+   * Tombol "Panggil Kembali" (Recall) khusus untuk memproses ulang pasien yang sebelumnya terlewat tanpa mengacaukan nomor antrean pasien lain yang sedang diperiksa.
+2. Manajemen Slot Jadwal (Calendar Settings):
+   * Membuka/menutup kuota pada tanggal tertentu.
+   * Mengatur batas maksimal kuota per slot waktu.
+3. Laporan Sederhana: Grafik jumlah pasien per minggu/bulan.
+II. Logika Bisnis & Transisi Status Antrean (Queue State Machine)
+Untuk menjamin keadilan pelayanan dan kelancaran alur klinik, sistem menggunakan mesin status antrean (State Machine) berikut:
+                  +-------------------+
+                 |  WAITING (Antre)  |
+                 +---------+---------+
+                           |
+                    (Panggil Normal)
+                           v
+                 +-------------------+      (Lewati / Skip)      +-------------------+
+                 | EXAMINING (Aktif) |-------------------------->| SKIPPED (Terlewat)|
+                 +---------+---------+                           +---------+---------+
+                           |                                               |
+                  (Selesai Periksa)                                        | (Panggil Ulang /
+                           v                                               |  Recall)
+                 +-------------------+                                     |
+                 | COMPLETED (Seles) |<------------------------------------+
+                 +-------------------+
+
+1. Mekanisme Reset Harian Otomatis
+* Setiap pergantian hari, nomor antrean pendaftaran pasien selalu di-reset mulai dari angka 1.
+* Rumus kalkulasi nomor antrean baru:
+  
+* Hal ini menjamin nomor urut yang rapi setiap harinya tanpa terpengaruh oleh jumlah transaksi hari-hari sebelumnya.
+2. Skenario Penanganan Kasus Pasien Terlambat (Skema Dinamis)
+Berikut adalah simulasi alur antrean jika terdapat pasien yang terlambat datang ketika nomornya dipanggil:
+Fase A: Antrean Awal
+   * Terdaftar 3 pasien untuk hari ini:
+   * Pasien 1 (No. 1): Status WAITING (Daftar Tunggu)
+   * Pasien 2 (No. 2): Status WAITING (Daftar Tunggu)
+   * Pasien 3 (No. 3): Status WAITING (Daftar Tunggu)
+Fase B: Pasien 1 Terlambat / Tidak Ada
+   1. Admin memicu panggilan untuk Pasien 1. Status Pasien 1 berubah menjadi EXAMINING.
+   2. Pasien 1 tidak muncul di ruang tunggu.
+   3. Admin menekan tombol "Lewati (Skip)":
+   * Status Pasien 1 diubah dari EXAMINING menjadi SKIPPED (Terlewat).
+   * Pasien 1 dipindahkan ke daftar khusus "Pasien Terlewat" pada layar visual admin agar tidak menyumbat antrean utama.
+Fase C: Pasien 2 Naik & Diperiksa
+   1. Admin memicu panggilan berikutnya.
+   2. Sistem mencari pasien berstatus WAITING terkecil, yaitu Pasien 2.
+   3. Status Pasien 2 berubah menjadi EXAMINING (sedang berada di dalam ruang dokter). Pasien 3 tetap berstatus WAITING di urutan berikutnya.
+Fase D: Pasien 1 Datang di Tengah Pemeriksaan Pasien 2
+   1. Saat Pasien 2 sedang diperiksa, Pasien 1 tiba di klinik dan melapor ke asisten/admin.
+   2. Pasien 1 tidak diperkenankan langsung masuk menyela Pasien 2 yang sedang diperiksa.
+   3. Pasien 1 dipersilakan menunggu giliran berikutnya karena statusnya saat ini masih di dalam daftar SKIPPED.
+Fase E: Pemanggilan Kembali Pasien 1 (Skenario Utama)
+Setelah Pasien 2 selesai diperiksa (status Pasien 2 menjadi COMPLETED), admin memiliki dua opsi keputusan pelayanan:
+   * Opsi 1: Memanggil Ulang Pasien 1 (Prioritas)
+Admin menekan tombol "Panggil Kembali" khusus untuk Pasien 1 pada daftar SKIPPED.
+      * Status Pasien 1 berubah menjadi EXAMINING (masuk ke dalam ruangan).
+      * Pasien 3 tetap sabar menunggu di daftar WAITING (menjadi antrean berikutnya setelah Pasien 1 selesai).
+      * Opsi 2: Pasien 1 Tetap Tidak Ada / Dipanggil Ulang Tetapi Belum Siap
+Jika saat dipanggil ulang Pasien 1 ternyata masih belum siap/belum di tempat:
+         * Admin dapat men-skip kembali Pasien 1 (tetap berada di status SKIPPED).
+         * Admin menekan tombol "Panggil Berikutnya" untuk memanggil Pasien 3 (status Pasien 3 berubah menjadi EXAMINING).
+III. Pertimbangan & Rekomendasi Tech Stack
+1. Frontend (Struktur Folder: frontend/)
+Menggunakan Vue 3 atau React.js dikombinasikan dengan Vite.
+         * Routing (router/): Mengatur akses rute secara terpisah untuk halaman pasien dan dasbor kontrol admin.
+         * Layanan API (services/): Pemanfaatan Axios untuk memanggil endpoint pengelolaan antrean (queueController.js) dan pendaftaran (bookingController.js).
+         * Visualisasi Real-time: Merekomendasikan implementasi polling ringan (Short Polling setiap 10-15 detik) dari frontend untuk mendeteksi perubahan status antrean tanpa membebani server, atau menggunakan WebSockets (Socket.io) untuk sinkronisasi instan jika ingin performa terbaik.
+2. Backend (Struktur Folder: backend/)
+Menggunakan Node.js + Express.js dengan database relasional ringan.
+         * Database & ORM: SQLite + Prisma ORM. Sangat ideal untuk klinik dokter tunggal karena seluruh database tersimpan dalam satu file lokal berkinerja tinggi, sehingga mudah di-backup dan tidak memerlukan konfigurasi server database terpisah yang rumit.
+IV. Panduan Implementasi Arsitektur Folder
+1. Sisi Backend (backend/)
+backend/
+├── config/             # database.js (Koneksi SQLite)
+├── models/             # Schema database (Prisma schema)
+├── middlewares/        # authMiddleware.js (Validasi akses admin)
+├── controllers/        # bookingController.js (Reset harian), queueController.js (State flow)
+├── routes/             # routes api antrean & reservasi
+├── app.js              # Express app setup & middleware global
+└── server.js           # Entry point aplikasi
+
+2. Sisi Frontend (frontend/)
+frontend/
+├── src/
+│   ├── assets/         # CSS global, gambar, atau ikon
+│   ├── router/         # Konfigurasi navigasi halaman (Home, Booking, Queue, Admin)
+│   ├── services/       # Komunikasi REST API dengan Backend
+│   ├── components/     # UI reusable (Kalender, Kartu Antrean, Tabel Riwayat)
+│   └── views/          # Halaman utama (HomeView, BookingView, AdminDashboard)

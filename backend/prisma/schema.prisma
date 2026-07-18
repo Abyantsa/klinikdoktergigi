@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Clinic {
+  id              String   @id @default("main")
+  doctorName      String
+  doctorShortBio  String
+  address         String
+  regularHours    String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ScheduleSlot {
+  id          String      @id @default(cuid())
+  date        DateTime
+  session     String
+  quota       Int
+  isOpen      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  bookings    Booking[]
+
+  @@unique([date, session])
+}
+
+model Booking {
+  id            String      @id @default(cuid())
+  queueNumber   Int
+  patientName   String
+  phone         String
+  complaint     String
+  date          DateTime
+  session       String
+  status        String      @default("WAITING")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  slot          ScheduleSlot @relation(fields: [slotId], references: [id])
+  slotId        String
+
+  @@index([date, status])
+}
+
+model DailyCounter {
+  date    DateTime @id
+  lastNumber Int      @default(0)
+}
