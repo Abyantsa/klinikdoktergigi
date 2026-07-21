@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const {
   listQueue,
+  getQueueStatus,
   callNext,
   skipPatient,
   recallPatient,
@@ -11,6 +12,7 @@ const {
 const { authMiddleware } = require("../middlewares/authMiddleware");
 
 router.get("/queue", listQueue);
+router.get("/queue/status", getQueueStatus);
 router.get("/queue/report", authMiddleware, getReport);
 
 router.post("/queue/call-next", authMiddleware, callNext);

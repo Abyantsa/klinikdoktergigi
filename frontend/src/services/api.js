@@ -29,6 +29,12 @@ export const queueService = {
     api
       .get("/api/queue", { params: date ? { date } : {} })
       .then((r) => r.data),
+  status: (bookingId, date) =>
+    api
+      .get("/api/queue/status", {
+        params: { ...(bookingId ? { bookingId } : {}), ...(date ? { date } : {}) },
+      })
+      .then((r) => r.data),
   callNext: (date) =>
     api.post("/api/queue/call-next", { date }).then((r) => r.data),
   skip: (id) => api.post(`/api/queue/skip/${id}`).then((r) => r.data),

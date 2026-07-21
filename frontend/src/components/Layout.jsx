@@ -10,6 +10,7 @@ export default function Layout() {
         <nav>
           <Link to="/">Beranda</Link>
           <Link to="/booking">Daftar Antrean</Link>
+          <Link to="/status">Cek Antrean</Link>
           <Link to="/admin" className="admin-link">
             Admin
           </Link>

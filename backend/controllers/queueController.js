@@ -37,6 +37,58 @@ async function listQueue(req, res) {
   }
 }
 
+async function getQueueStatus(req, res) {
+  try {
+    const { date, bookingId } = req.query;
+    const dateOnly = date ? new Date(date) : new Date();
+    dateOnly.setHours(0, 0, 0, 0);
+
+    const bookings = await prisma.booking.findMany({
+      where: { date: dateOnly },
+      orderBy: { queueNumber: "asc" },
+    });
+
+    const examining = bookings.find((b) => b.status === "EXAMINING");
+    const skipped = bookings.filter((b) => b.status === "SKIPPED");
+    const waiting = bookings
+      .filter((b) => b.status === "WAITING")
+      .sort((a, b) => a.queueNumber - b.queueNumber);
+
+    const lastCompleted = bookings
+      .filter((b) => b.status === "COMPLETED")
+      .sort((a, b) => b.queueNumber - a.queueNumber)[0];
+
+    let position = null;
+    let myStatus = null;
+    let myNumber = null;
+
+    if (bookingId) {
+      const me = bookings.find((b) => b.id === bookingId);
+      if (me) {
+        myStatus = me.status;
+        myNumber = me.queueNumber;
+        if (me.status === "WAITING") {
+          const idx = waiting.findIndex((b) => b.id === me.id);
+          position = idx + 1;
+        }
+      }
+    }
+
+    return res.json({
+      currentlyServing: examining ? examining.queueNumber : null,
+      lastCompleted: lastCompleted ? lastCompleted.queueNumber : null,
+      waitingCount: waiting.length,
+      skippedCount: skipped.length,
+      totalBooked: bookings.length,
+      yourPosition: position,
+      yourStatus: myStatus,
+      yourNumber: myNumber,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 async function callNext(req, res) {
   try {
     const { date } = req.body;
@@ -193,6 +245,7 @@ async function getReport(req, res) {
 
 module.exports = {
   listQueue,
+  getQueueStatus,
   callNext,
   skipPatient,
   recallPatient,
